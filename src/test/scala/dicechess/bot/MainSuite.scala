@@ -5,11 +5,10 @@ import dicechess.engine.search.TurnGenerator
 import io.circe.parser.parse
 import com.fortemate.dicechess.runtime.{Signatures, WebhookHandler}
 
-/** Proves `Main`'s wiring — the library's `WebhookHandler`/`CustomHandlerServer` talking to our
-  * real engine-backed `Strategy`, end to end over a real socket. The webhook mechanics themselves
-  * (signature verification, the handshake, malformed input, ...) are `dicechess-bot-runtime`'s own
-  * responsibility and are already covered there; this suite only needs to show that plugging our
-  * strategy into the library produces a legal engine move.
+/** Proves `Main`'s wiring — the library's `WebhookHandler`/`CustomHandlerServer` talking to our real engine-backed
+  * `Strategy`, end to end over a real socket. The webhook mechanics themselves (signature verification, the handshake,
+  * malformed input, ...) are `dicechess-bot-runtime`'s own responsibility and are already covered there; this suite
+  * only needs to show that plugging our strategy into the library produces a legal engine move.
   */
 class MainSuite extends munit.FunSuite:
 
@@ -38,7 +37,10 @@ class MainSuite extends munit.FunSuite:
       val ts   = System.currentTimeMillis() / 1000
       val turn = post(
         body,
-        Map(WebhookHandler.TIMESTAMP_HEADER -> ts.toString, WebhookHandler.SIGNATURE_HEADER -> Signatures.sign(Secret, ts, body))
+        Map(
+          WebhookHandler.TIMESTAMP_HEADER -> ts.toString,
+          WebhookHandler.SIGNATURE_HEADER -> Signatures.sign(Secret, ts, body)
+        )
       )
       assertEquals(turn.statusCode(), 200)
       val moves = parse(turn.body()).toOption.get.hcursor.get[List[String]]("moves").toOption.get

@@ -23,16 +23,16 @@ final class Strategy(bot: SearchAlgorithm):
 
 object Strategy:
 
-  /** UCI for a search-layer `Move` (which has no notation of its own) — the same recipe play-api's `EngineOps` uses,
-    * so the strings this bot submits are byte-for-byte what the server's own enumeration produces.
+  /** UCI for a search-layer `Move` (which has no notation of its own) — the same recipe play-api's `EngineOps` uses, so
+    * the strings this bot submits are byte-for-byte what the server's own enumeration produces.
     */
   def toUci(move: Move): String =
     move.fromSquare.toNotation + move.toSquare.toNotation +
       move.promotionPieceType.map(_.asNotation).getOrElse("")
 
   /** Build the aggressive+book strategy from an `opening_book.json` on disk. A missing or malformed book degrades to
-    * bookless aggressive play with a loud stderr note — a bot that plays slightly worse beats one that refuses to
-    * start over a data file.
+    * bookless aggressive play with a loud stderr note — a bot that plays slightly worse beats one that refuses to start
+    * over a data file.
     */
   def fromBookFile(path: Path): Strategy =
     val book =

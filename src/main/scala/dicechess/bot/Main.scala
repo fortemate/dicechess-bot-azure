@@ -4,13 +4,12 @@ import com.sun.net.httpserver.HttpServer
 import com.fortemate.dicechess.runtime.{CustomHandlerServer, TurnContext, WebhookHandler}
 
 import java.nio.file.Path
-import java.util.function.{Function => JFunction}
+import java.util.function.Function as JFunction
 import scala.jdk.CollectionConverters.*
 
-/** The Azure Functions custom-handler process. All webhook/HTTP-server plumbing —
-  * HMAC verification, the ownership handshake, the JDK `HttpServer` itself — now lives in
-  * `dicechess-bot-runtime` (`lv.id.jc:dicechess-bot-runtime`); this object only wires our
-  * engine-backed [[Strategy]] into it.
+/** The Azure Functions custom-handler process. All webhook/HTTP-server plumbing — HMAC verification, the ownership
+  * handshake, the JDK `HttpServer` itself — now lives in `dicechess-bot-runtime` (`lv.id.jc:dicechess-bot-runtime`);
+  * this object only wires our engine-backed [[Strategy]] into it.
   *
   * Configuration (App Settings on Azure, plain env vars locally):
   *   - `DICECHESS_WEBHOOK_SECRET` — the per-bot signing key from webhook registration. Absent, only the registration
@@ -34,10 +33,10 @@ object Main:
   def start(port: Int, secret: String, strategy: Strategy): HttpServer =
     CustomHandlerServer.start(port, "/api/webhook", new WebhookHandler(secret, adapt(strategy)))
 
-  /** `dicechess-bot-runtime`'s strategy shape is a plain `java.util.function.Function` — a Scala
-    * lambda converts to it via SAM automatically, so this adapter is the entire cost of reusing
-    * the library from a Scala bot. `AggressiveSearch` needs nothing beyond the position (no time
-    * management, no `legalMoves` from the wire), so only `ctx.dfen` is read here.
+  /** `dicechess-bot-runtime`'s strategy shape is a plain `java.util.function.Function` — a Scala lambda converts to it
+    * via SAM automatically, so this adapter is the entire cost of reusing the library from a Scala bot.
+    * `AggressiveSearch` needs nothing beyond the position (no time management, no `legalMoves` from the wire), so only
+    * `ctx.dfen` is read here.
     */
   private def adapt(strategy: Strategy): JFunction[TurnContext, java.util.List[String]] =
     (ctx: TurnContext) =>
