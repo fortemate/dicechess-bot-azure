@@ -1,0 +1,11 @@
+target/
+project/target/
+project/project/
+.bsp/
+.idea/
+.metals/
+.vscode/
+.DS_Store
+local.settings.json
+# The CI-built native binary is downloaded here for `func publish`, never committed
+/dicechess-bot

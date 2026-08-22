@@ -1,0 +1,40 @@
+[tools]
+java = "temurin-25"
+scalafmt = "3.11.4"
+actionlint = "1.7.12"
+betterleaks = "latest"
+lefthook = "latest"
+
+[tasks.setup]
+description = "📦 Install local toolchain and register git hooks"
+run = """
+mise install
+lefthook install
+"""
+
+[tasks.compile]
+description = "🏗️ Compile Scala sources"
+run = "sbt compile"
+
+[tasks.test]
+description = "🧪 Run unit test suites"
+run = "sbt test"
+
+[tasks.check]
+description = "✅ Run full validation (format check + clean + test)"
+run = """
+mise run format:check
+sbt clean test
+"""
+
+[tasks.format]
+description = "🎨 Format code with scalafmt"
+run = "sbt scalafmtAll scalafmtSbt"
+
+[tasks."format:check"]
+description = "🔍 Check code formatting with scalafmt"
+run = "sbt scalafmtCheckAll scalafmtSbtCheck"
+
+[tasks."build:native"]
+description = "⚡ Compile GraalVM Native Image binary"
+run = "sbt nativeImage"

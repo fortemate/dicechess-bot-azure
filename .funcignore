@@ -1,0 +1,13 @@
+src
+project
+target
+.github
+.git*
+.bsp
+.idea
+.metals
+build.sbt
+README.md
+LICENSE
+local.settings.json
+local.settings.json.example

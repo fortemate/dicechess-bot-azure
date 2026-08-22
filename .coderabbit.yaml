@@ -1,0 +1,65 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+
+# =============================================================================
+# CodeRabbit Configuration — Dice Chess Analytics (Scala 3 / http4s / Doobie)
+# =============================================================================
+# Analytics backend, position statistics engine, and game history for Dice Chess.
+# =============================================================================
+
+language: en-US
+
+reviews:
+  profile: assertive
+
+  high_level_summary: false
+  poem: false
+  collapse_walkthrough: true
+
+  auto_review:
+    enabled: false
+    drafts: false
+    base_branches:
+      - main
+
+  path_filters:
+    - "!**/target/**"
+    - "!**/project/target/**"
+    - "!**/*.lock"
+
+  tools:
+    actionlint:
+      enabled: true
+    gitleaks:
+      enabled: true
+    shellcheck:
+      enabled: true
+    markdownlint:
+      enabled: true
+
+  path_instructions:
+    - path: "**/*.scala"
+      instructions: |
+        Modern Scala 3 + cats-effect (Typelevel) conventions.
+        When reviewing:
+        - No nulls, no exceptions for control flow, no `return`; model effects in IO
+          and errors as values.
+        - Comments explain "Why", not "What"; don't document self-evident methods.
+        - Use standard Markdown for Scaladoc code fences (```scala```).
+        - Game replay and validation MUST strictly rely on `com.fortemate:dicechess-engine`.
+        - Database operations must be transactional and use Doobie ConnectionIO.
+
+    - path: ".github/workflows/**"
+      instructions: |
+        CI/CD for a Scala 3 service that resolves the engine from GitHub Packages.
+        When reviewing:
+        - Prefer pinned action versions.
+        - Ensure GITHUB_TOKEN / packages:read is present where the engine artifact
+          is resolved.
+
+    - path: "build.sbt"
+      instructions: |
+        SBT build for a Scala 3 cats-effect service.
+        When reviewing:
+        - Keep library versions consistent and compatible with Scala 3.8.4.
+        - Verify the GitHub Packages resolver/credentials stay free of network calls
+          at load time.

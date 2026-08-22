@@ -1,0 +1,90 @@
+name: "CI: Validate & Build"
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  test:
+    name: Scalafmt & JVM Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: sbt
+
+      - name: Setup sbt
+        uses: sbt/setup-sbt@v1
+
+      - name: Check Formatting (scalafmt)
+        run: sbt scalafmtCheckAll scalafmtSbtCheck
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run unit tests
+        run: sbt test
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  native-image:
+    name: Native Image (linux-x64)
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup GraalVM
+        uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: "25"
+          distribution: graalvm-community
+          cache: sbt
+
+      - name: Setup sbt
+        uses: sbt/setup-sbt@v1
+
+      - name: Build native image
+        run: sbt nativeImage
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Smoke-run the binary
+        run: |
+          chmod +x target/native-image/dicechess-bot
+          DICECHESS_WEBHOOK_SECRET=smoke FUNCTIONS_CUSTOMHANDLER_PORT=8099 ./target/native-image/dicechess-bot &
+          sleep 2
+          RESPONSE=$(curl -s -X POST http://127.0.0.1:8099/api/webhook \
+            -H "Content-Type: application/json" \
+            -d '{"type":"verification","nonce":"ci-smoke"}')
+          echo "handshake response: $RESPONSE"
+          echo "$RESPONSE" | grep -q '"nonce":"ci-smoke"' || (echo "handshake failed" && exit 1)
+          kill %1
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dicechess-bot-linux-x64
+          path: target/native-image/dicechess-bot
+          if-no-files-found: error

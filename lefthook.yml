@@ -1,0 +1,27 @@
+# Lefthook — Git hooks configuration
+# Docs: https://github.com/evilmartians/lefthook
+# Standard Fortemate hook configuration.
+# Install locally with `mise run setup` (or `lefthook install`).
+
+pre-commit:
+  parallel: true
+  jobs:
+    # Secret scanning: abort if any staged diff leaks a credential.
+    - name: betterleaks
+      run: betterleaks git --pre-commit --redact --staged
+
+    # Native scalafmt CLI: milliseconds per commit.
+    - name: scalafmt
+      glob: "**.{scala,sbt}"
+      run: scalafmt --test {staged_files}
+
+    # actionlint for GitHub Actions workflows
+    - name: workflow-yaml
+      glob: ".github/workflows/*.y*ml"
+      run: actionlint -shellcheck= {staged_files}
+
+pre-push:
+  jobs:
+    - name: scalafmt-all
+      glob: "**.{scala,sbt}"
+      run: scalafmt --test .
