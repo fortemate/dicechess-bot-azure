@@ -84,7 +84,7 @@ jobs:
           kill %1
 
       - name: Upload binary artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dicechess-bot-linux-x64
           path: target/native-image/dicechess-bot
