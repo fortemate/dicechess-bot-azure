@@ -19,6 +19,7 @@
 - **PR Description**: Reference closed issues with `Closes #ID`.
 
 ## Issue management
+
 <!-- dc-shared:issue-management v3 — keep identical across Fortemate repositories -->
 
 - Use the native GitHub Issue Type as the canonical work classification:
