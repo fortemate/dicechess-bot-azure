@@ -4,7 +4,7 @@ ThisBuild / organizationHomepage := Some(url("https://fortemate.com"))
 ThisBuild / homepage             := Some(url("https://fortemate.com"))
 ThisBuild / startYear            := Some(2026)
 ThisBuild / version              := "0.1.0-SNAPSHOT"
-ThisBuild / scalaVersion         := "3.8.4"
+ThisBuild / scalaVersion         := "3.9.0"
 
 ThisBuild / description := "Dice Chess webhook bot in Scala: the engine's aggressive search + opening book, compiled to a GraalVM native image for Azure Functions."
 ThisBuild / licenses := List("AGPL-3.0" -> url("https://www.gnu.org/licenses/agpl-3.0.txt"))
