@@ -2,7 +2,7 @@
 
 ## Architecture Overview
 - **Domain**: Scala 3 webhook bot powered by the engine's aggressive king-hunt search + opening book, compiled to a GraalVM native image for Azure Functions.
-- **Engine**: Cross-platform Scala 3 engine (`com.fortemate:dicechess-engine` 0.4.1).
+- **Engine**: Cross-platform Scala 3 engine (`com.fortemate:dicechess-engine` 0.7.2).
 - **Runtime**: `com.fortemate:dicechess-bot-runtime` (Java 25) with Webhook HMAC verification and JDK `CustomHandlerServer`.
 - **Search**: `AggressiveSearch` + `OpeningBookBot` loading `opening_book.tsv` (147 master opening lines).
 
