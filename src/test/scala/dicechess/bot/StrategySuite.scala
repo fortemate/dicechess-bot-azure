@@ -32,18 +32,6 @@ class StrategySuite extends munit.FunSuite:
   private val noDiceFen  = FenParser.InitialPosition
   private val clock      = new GameClock(60000, 60000, java.lang.Long.valueOf(1000))
 
-  final private class StubSearch(
-      offerDraw: Boolean = false,
-      acceptDraw: Boolean = false,
-      offerDouble: Boolean = false,
-      acceptDouble: Boolean = false
-  ) extends SearchAlgorithm:
-    override def findBestMove(state: GameState): Option[ScoredSequence]   = AggressiveSearch.findBestMove(state)
-    override def shouldOfferDraw(state: GameState): Boolean               = offerDraw
-    override def shouldAcceptDraw(state: GameState): Boolean              = acceptDraw
-    override def shouldOfferDouble(state: GameState, mult: Int): Boolean  = offerDouble
-    override def shouldAcceptDouble(state: GameState, mult: Int): Boolean = acceptDouble
-
   test("aggressive play from a bare DFEN yields one of the engine's own legal paths"):
     val strategy   = new Strategy(AggressiveSearch)
     val moves      = strategy.chooseMoves(initialNbk).toOption.get
@@ -79,8 +67,8 @@ class StrategySuite extends munit.FunSuite:
     assertEquals(Strategy.seatToColor(null), Color.White)
 
   test("onTurn offers a draw only when permitted by server and requested by policy"):
-    val strategyDraw   = new Strategy(new StubSearch(offerDraw = true))
-    val strategyNoDraw = new Strategy(new StubSearch(offerDraw = false))
+    val strategyDraw   = new Strategy(new TestHelpers.ConfigurableSearch(offerDraw = true))
+    val strategyNoDraw = new Strategy(new TestHelpers.ConfigurableSearch(offerDraw = false))
 
     val turnPermitted = new TurnContext("g1", "White", 1, initialNbk, clock, java.util.List.of(), true)
     val turnForbidden = new TurnContext("g1", "White", 1, initialNbk, clock, java.util.List.of(), false)
@@ -97,8 +85,8 @@ class StrategySuite extends munit.FunSuite:
     assert(!action.offerDraw())
 
   test("onDrawDecision delegates to wrapped engine shouldAcceptDraw from bot's perspective"):
-    val acceptStrat  = new Strategy(new StubSearch(acceptDraw = true))
-    val declineStrat = new Strategy(new StubSearch(acceptDraw = false))
+    val acceptStrat  = new Strategy(new TestHelpers.ConfigurableSearch(acceptDraw = true))
+    val declineStrat = new Strategy(new TestHelpers.ConfigurableSearch(acceptDraw = false))
 
     val drawCtx = new DrawDecisionContext("g1", "Black", 1, noDiceFen, clock)
 
@@ -111,8 +99,8 @@ class StrategySuite extends munit.FunSuite:
     assert(!strategy.onDrawDecision(drawCtx).acceptDraw())
 
   test("onDoubleOpportunity bridges shouldOfferDouble with current stake multiplier and bot perspective"):
-    val offerStrat = new Strategy(new StubSearch(offerDouble = true))
-    val rollStrat  = new Strategy(new StubSearch(offerDouble = false))
+    val offerStrat = new Strategy(new TestHelpers.ConfigurableSearch(offerDouble = true))
+    val rollStrat  = new Strategy(new TestHelpers.ConfigurableSearch(offerDouble = false))
 
     val dState = new DoublingState(
       DoublingState.CURRENCY_PLAY_CREDIT,
@@ -148,8 +136,8 @@ class StrategySuite extends munit.FunSuite:
     assert(!strategy.onDoubleOpportunity(oppCtx).offerDouble())
 
   test("onDoubleDecision bridges shouldAcceptDouble with proposed stake multiplier and bot perspective"):
-    val acceptStrat  = new Strategy(new StubSearch(acceptDouble = true))
-    val declineStrat = new Strategy(new StubSearch(acceptDouble = false))
+    val acceptStrat  = new Strategy(new TestHelpers.ConfigurableSearch(acceptDouble = true))
+    val declineStrat = new Strategy(new TestHelpers.ConfigurableSearch(acceptDouble = false))
 
     val dState = new DoublingState(
       DoublingState.CURRENCY_PLAY_CREDIT,
