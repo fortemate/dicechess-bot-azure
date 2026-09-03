@@ -32,46 +32,39 @@ final class Strategy(val bot: SearchAlgorithm) extends BotStrategy:
         System.err.println(s"[bot] unusable dfen in onTurn: $reason")
         TurnAction(java.util.List.of(), false)
       case Right(state) =>
-        val moves = bot.findBestMove(state).map(_.moves.map(Strategy.toUci)).getOrElse(Nil)
-        // A turn offers a draw only when the server says it is permitted and the wrapped engine policy chooses to offer.
-        // `state` parsed from DFEN during a turn is already from the bot's (active player's) perspective.
+        val moves     = bot.findBestMove(state).map(_.moves.map(Strategy.toUci)).getOrElse(Nil)
         val offerDraw = ctx.mayOfferDraw() && bot.shouldOfferDraw(state)
         TurnAction(moves.asJava, offerDraw)
 
   override def onDrawDecision(ctx: DrawDecisionContext): DrawAction =
-    parseState(ctx.dfen()) match
-      case Left(reason) =>
-        System.err.println(s"[bot] unusable dfen in onDrawDecision: $reason")
-        DrawAction.decline()
-      case Right(state) =>
-        val botColor = Strategy.seatToColor(ctx.seat())
-        val botState = state.withActiveColor(botColor)
-        if bot.shouldAcceptDraw(botState) then DrawAction.accept()
-        else DrawAction.decline()
+    withParsedBotState(ctx.dfen(), ctx.seat(), "onDrawDecision", DrawAction.decline()) { botState =>
+      if bot.shouldAcceptDraw(botState) then DrawAction.accept() else DrawAction.decline()
+    }
 
   override def onDoubleOpportunity(ctx: DoubleOpportunityContext): DoubleOfferAction =
-    parseState(ctx.dfen()) match
-      case Left(reason) =>
-        System.err.println(s"[bot] unusable dfen in onDoubleOpportunity: $reason")
-        DoubleOfferAction.roll()
-      case Right(state) =>
-        val botColor          = Strategy.seatToColor(ctx.seat())
-        val botState          = state.withActiveColor(botColor)
-        val currentMultiplier = Strategy.currentMultiplier(ctx)
-        if bot.shouldOfferDouble(botState, currentMultiplier) then DoubleOfferAction.offer()
-        else DoubleOfferAction.roll()
+    withParsedBotState(ctx.dfen(), ctx.seat(), "onDoubleOpportunity", DoubleOfferAction.roll()) { botState =>
+      if bot.shouldOfferDouble(botState, Strategy.currentMultiplier(ctx)) then DoubleOfferAction.offer()
+      else DoubleOfferAction.roll()
+    }
 
   override def onDoubleDecision(ctx: DoubleDecisionContext): DoubleResponseAction =
-    parseState(ctx.dfen()) match
+    withParsedBotState(ctx.dfen(), ctx.seat(), "onDoubleDecision", DoubleResponseAction.decline()) { botState =>
+      if bot.shouldAcceptDouble(botState, Strategy.proposedMultiplier(ctx)) then DoubleResponseAction.accept()
+      else DoubleResponseAction.decline()
+    }
+
+  private def withParsedBotState[A](
+      dfen: String,
+      seat: String,
+      contextName: String,
+      fallback: A
+  )(f: GameState => A): A =
+    parseState(dfen) match
       case Left(reason) =>
-        System.err.println(s"[bot] unusable dfen in onDoubleDecision: $reason")
-        DoubleResponseAction.decline()
+        System.err.println(s"[bot] unusable dfen in $contextName: $reason")
+        fallback
       case Right(state) =>
-        val botColor           = Strategy.seatToColor(ctx.seat())
-        val botState           = state.withActiveColor(botColor)
-        val proposedMultiplier = Strategy.proposedMultiplier(ctx)
-        if bot.shouldAcceptDouble(botState, proposedMultiplier) then DoubleResponseAction.accept()
-        else DoubleResponseAction.decline()
+        f(state.withActiveColor(Strategy.seatToColor(seat)))
 
   /** Helper for backwards compatibility / direct move selection tests. */
   def chooseMoves(dfen: String): Either[String, List[String]] =

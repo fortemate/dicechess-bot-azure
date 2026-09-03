@@ -102,54 +102,23 @@ class StrategySuite extends munit.FunSuite:
     val offerStrat = new Strategy(new TestHelpers.ConfigurableSearch(offerDouble = true))
     val rollStrat  = new Strategy(new TestHelpers.ConfigurableSearch(offerDouble = false))
 
-    val dState = new DoublingState(
-      DoublingState.CURRENCY_PLAY_CREDIT,
-      100L,
-      200L,
-      2,
-      "White",
-      64,
-      true,
-      "White",
-      new DoublingDecision.Offer("double_1", "White", 200L)
-    )
-
-    val oppCtx = new DoubleOpportunityContext("g1", "White", 1, noDiceFen, clock, dState)
+    val oppCtx = new DoubleOpportunityContext("g1", "White", 1, noDiceFen, clock, TestHelpers.doublingState())
 
     assert(offerStrat.onDoubleOpportunity(oppCtx).offerDouble())
     assert(!rollStrat.onDoubleOpportunity(oppCtx).offerDouble())
 
   test("onDoubleOpportunity fails closed (rolls) on malformed DFEN"):
     val strategy = new Strategy(AggressiveSearch)
-    val dState   = new DoublingState(
-      DoublingState.CURRENCY_PLAY_CREDIT,
-      100L,
-      100L,
-      1,
-      null,
-      64,
-      true,
-      "White",
-      new DoublingDecision.Offer("double_1", "White", 200L)
-    )
-    val oppCtx = new DoubleOpportunityContext("g1", "White", 1, "bad dfen", clock, dState)
+    val dState   = TestHelpers.doublingState(currentStake = 100L, cubeValue = 1, cubeOwner = null)
+    val oppCtx   = new DoubleOpportunityContext("g1", "White", 1, "bad dfen", clock, dState)
     assert(!strategy.onDoubleOpportunity(oppCtx).offerDouble())
 
   test("onDoubleDecision bridges shouldAcceptDouble with proposed stake multiplier and bot perspective"):
     val acceptStrat  = new Strategy(new TestHelpers.ConfigurableSearch(acceptDouble = true))
     val declineStrat = new Strategy(new TestHelpers.ConfigurableSearch(acceptDouble = false))
 
-    val dState = new DoublingState(
-      DoublingState.CURRENCY_PLAY_CREDIT,
-      100L,
-      200L,
-      2,
-      "White",
-      64,
-      false,
-      "White",
-      new DoublingDecision.Response("double_1", "Black", "White", 200L)
-    )
+    val respDecision = new DoublingDecision.Response("double_1", "Black", "White", 200L)
+    val dState       = TestHelpers.doublingState(mayOfferDouble = false, decision = respDecision)
 
     val decCtx = new DoubleDecisionContext("g1", "Black", 1, noDiceFen, clock, dState)
 
@@ -157,17 +126,8 @@ class StrategySuite extends munit.FunSuite:
     assert(!declineStrat.onDoubleDecision(decCtx).acceptDouble())
 
   test("onDoubleDecision fails closed (declines) on malformed DFEN"):
-    val strategy = new Strategy(AggressiveSearch)
-    val dState   = new DoublingState(
-      DoublingState.CURRENCY_PLAY_CREDIT,
-      100L,
-      200L,
-      2,
-      "White",
-      64,
-      false,
-      "White",
-      new DoublingDecision.Response("double_1", "Black", "White", 200L)
-    )
-    val decCtx = new DoubleDecisionContext("g1", "Black", 1, "bad dfen", clock, dState)
+    val strategy     = new Strategy(AggressiveSearch)
+    val respDecision = new DoublingDecision.Response("double_1", "Black", "White", 200L)
+    val dState       = TestHelpers.doublingState(mayOfferDouble = false, decision = respDecision)
+    val decCtx       = new DoubleDecisionContext("g1", "Black", 1, "bad dfen", clock, dState)
     assert(!strategy.onDoubleDecision(decCtx).acceptDouble())
