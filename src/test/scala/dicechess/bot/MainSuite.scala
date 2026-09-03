@@ -64,70 +64,47 @@ class MainSuite extends munit.FunSuite:
       assert(offerDraw, "offerDraw should be true when permitted and policy agrees")
     }
 
+  private def testDecision(
+      acceptStrat: Strategy,
+      declineStrat: Strategy,
+      body: String,
+      field: String
+  ): Unit =
+    for (strat, expected) <- List((acceptStrat, true), (declineStrat, false)) do
+      withServer(strat) { (client, url) =>
+        val res = postSigned(client, url, body)
+        assertEquals(res.statusCode(), 200)
+        assertEquals(parse(res.body()).toOption.get.hcursor.get[Boolean](field), Right(expected))
+      }
+
   test("end to end over real HTTP: draw decision accept/decline responses"):
     val acceptStrat  = new Strategy(new TestHelpers.ConfigurableSearch(acceptDraw = true))
     val declineStrat = new Strategy(new TestHelpers.ConfigurableSearch(acceptDraw = false))
-
-    val body = TestHelpers.makeEnvelope("drawDecision", "White", noDiceFen, drawOfferPending = true)
-
-    withServer(acceptStrat) { (client, url) =>
-      val res = postSigned(client, url, body)
-      assertEquals(res.statusCode(), 200)
-      assertEquals(parse(res.body()).toOption.get.hcursor.get[Boolean]("acceptDraw"), Right(true))
-    }
-
-    withServer(declineStrat) { (client, url) =>
-      val res = postSigned(client, url, body)
-      assertEquals(res.statusCode(), 200)
-      assertEquals(parse(res.body()).toOption.get.hcursor.get[Boolean]("acceptDraw"), Right(false))
-    }
+    val body         = TestHelpers.makeEnvelope("drawDecision", "White", noDiceFen, drawOfferPending = true)
+    testDecision(acceptStrat, declineStrat, body, "acceptDraw")
 
   test("end to end over real HTTP: double opportunity offer/roll responses"):
     val offerStrat = new Strategy(new TestHelpers.ConfigurableSearch(offerDouble = true))
     val rollStrat  = new Strategy(new TestHelpers.ConfigurableSearch(offerDouble = false))
-
-    val body = TestHelpers.makeEnvelope(
+    val body       = TestHelpers.makeEnvelope(
       "doubleOpportunity",
       "White",
       noDiceFen,
       doublingState = TestHelpers.doublingJson("offer", "White")
     )
-
-    withServer(offerStrat) { (client, url) =>
-      val res = postSigned(client, url, body)
-      assertEquals(res.statusCode(), 200)
-      assertEquals(parse(res.body()).toOption.get.hcursor.get[Boolean]("offerDouble"), Right(true))
-    }
-
-    withServer(rollStrat) { (client, url) =>
-      val res = postSigned(client, url, body)
-      assertEquals(res.statusCode(), 200)
-      assertEquals(parse(res.body()).toOption.get.hcursor.get[Boolean]("offerDouble"), Right(false))
-    }
+    testDecision(offerStrat, rollStrat, body, "offerDouble")
 
   test("end to end over real HTTP: double decision take/drop responses"):
     val acceptStrat  = new Strategy(new TestHelpers.ConfigurableSearch(acceptDouble = true))
     val declineStrat = new Strategy(new TestHelpers.ConfigurableSearch(acceptDouble = false))
-
-    val body = TestHelpers.makeEnvelope(
+    val body         = TestHelpers.makeEnvelope(
       "doubleDecision",
       "Black",
       noDiceFen,
       activeSeat = "Black",
-      doublingState = TestHelpers.doublingJson("response", "Black", offeredBy = "White", mayOfferDouble = false)
+      doublingState = TestHelpers.doublingJson("response", "Black", offeredBy = Some("White"), mayOfferDouble = false)
     )
-
-    withServer(acceptStrat) { (client, url) =>
-      val res = postSigned(client, url, body)
-      assertEquals(res.statusCode(), 200)
-      assertEquals(parse(res.body()).toOption.get.hcursor.get[Boolean]("acceptDouble"), Right(true))
-    }
-
-    withServer(declineStrat) { (client, url) =>
-      val res = postSigned(client, url, body)
-      assertEquals(res.statusCode(), 200)
-      assertEquals(parse(res.body()).toOption.get.hcursor.get[Boolean]("acceptDouble"), Right(false))
-    }
+    testDecision(acceptStrat, declineStrat, body, "acceptDouble")
 
   test("end to end over real HTTP: malformed DFEN fails closed with safe defaults"):
     withServer(strategy) { (client, url) =>

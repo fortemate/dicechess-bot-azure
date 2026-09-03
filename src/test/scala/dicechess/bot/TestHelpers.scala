@@ -40,13 +40,13 @@ object TestHelpers:
   def doublingJson(
       kind: String,
       seat: String,
-      offeredBy: String = null,
-      cubeOwner: String = null,
+      offeredBy: Option[String] = None,
+      cubeOwner: Option[String] = None,
       mayOfferDouble: Boolean = true
   ): String =
-    val optOfferedBy = Option(offeredBy).map(o => s""", "offeredBy": "$o"""").getOrElse("")
-    val optOwner     = Option(cubeOwner).map(c => s""""$c"""").getOrElse("null")
-    s"""{"currency":"PLAY_CREDIT","initialStake":100,"currentStake":100,"cubeValue":1,"cubeOwner":$optOwner,"maximumMultiplier":64,"mayOfferDouble":$mayOfferDouble,"turnSeat":"White","decision":{"id":"double_1","kind":"$kind","seat":"$seat"$optOfferedBy,"proposedStake":200}}"""
+    val ob = offeredBy.map(o => s""", "offeredBy": "$o"""").getOrElse("")
+    val co = cubeOwner.map(c => s""""$c"""").getOrElse("null")
+    s"""{"currency":"PLAY_CREDIT","initialStake":100,"currentStake":100,"cubeValue":1,"cubeOwner":$co,"maximumMultiplier":64,"mayOfferDouble":$mayOfferDouble,"turnSeat":"White","decision":{"id":"double_1","kind":"$kind","seat":"$seat"$ob,"proposedStake":200}}"""
 
   def makeEnvelope(
       eventType: String,
@@ -58,7 +58,10 @@ object TestHelpers:
       drawOfferPending: Boolean = false,
       doublingState: String = null
   ): String =
-    val optDraw     = if drawOfferPending then """, "drawOffer": {"pending": true}""" else ""
-    val optMayOffer = if mayOfferDraw then """, "mayOfferDraw": true""" else ""
-    val optDoubling = Option(doublingState).map(d => s""", "doubling": $d""").getOrElse("")
-    s"""{"type":"$eventType","gameId":"g1","seat":"$seat","state":{"version":1,"dfen":"$dfen","activeSeat":"$activeSeat","dicePending":$dicePending$optMayOffer$optDraw$optDoubling}}"""
+    val stateProps = new StringBuilder(
+      s""""version":1,"dfen":"$dfen","activeSeat":"$activeSeat","dicePending":$dicePending"""
+    )
+    if mayOfferDraw then stateProps.append(""","mayOfferDraw":true""")
+    if drawOfferPending then stateProps.append(""","drawOffer":{"pending":true}""")
+    if doublingState != null then stateProps.append(s""","doubling":$doublingState""")
+    s"""{"type":"$eventType","gameId":"g1","seat":"$seat","state":{${stateProps.toString()}}}"""
