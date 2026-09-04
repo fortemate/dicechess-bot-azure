@@ -28,7 +28,7 @@ ThisBuild / credentials ++= (for {
 
 val DiceChessEngineVersion     = "0.7.2"
 val DiceChessBotRuntimeVersion = "1.0.1"
-val MunitVersion               = "1.3.5"
+val MunitVersion               = "1.3.6"
 
 lazy val root = (project in file("."))
   .enablePlugins(NativeImagePlugin)
