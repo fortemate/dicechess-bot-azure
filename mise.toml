@@ -1,5 +1,6 @@
 [tools]
 java = "temurin-25"
+sbt = "1.13.0" # sbt runner; MUST match sbt.version in project/build.properties (also provisions the Jules VM)
 scalafmt = "3.11.4"
 actionlint = "1.7.12"
 betterleaks = "latest"
