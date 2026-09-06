@@ -1,5 +1,21 @@
 # Dice Chess Bot — Azure Functions (GraalVM Native Image) — AI Agent Guidelines
 
+## Definition of Done — before every commit
+
+<!-- dc-shared:definition-of-done v1 — keep identical across Fortemate sbt repositories -->
+
+1. Format: `mise run format`. If `mise` is not on PATH: `~/.local/bin/mise exec -- sbt scalafmtAll`.
+2. Gate: `mise run check` — the same command CI runs. If part of it cannot run in your sandbox (for
+   example Docker for Testcontainers), run `mise exec -- sbt 'scalafmtCheckAll; Test/compile'` plus every
+   suite that can run, and list what you skipped in the pull request.
+3. Never publish unformatted Scala or code that does not compile: CI rejects both, and every red run
+   costs a review cycle.
+
+Sandboxed agents (Jules): the toolchain is provisioned by `scripts/jules-setup.sh` (Java, sbt, scalafmt
+via mise). If a tool is missing, run `bash scripts/jules-setup.sh` instead of installing tools ad hoc.
+
+<!-- /dc-shared:definition-of-done -->
+
 ## Architecture Overview
 - **Domain**: Scala 3 webhook bot powered by the engine's aggressive king-hunt search + opening book, compiled to a GraalVM native image for Azure Functions.
 - **Engine**: Cross-platform Scala 3 engine (`com.fortemate:dicechess-engine` 0.7.2).
