@@ -8,7 +8,7 @@ import java.util.function.Function as JFunction
 import scala.jdk.CollectionConverters.*
 
 /** The Azure Functions custom-handler process. All webhook/HTTP-server plumbing — HMAC verification, the ownership
-  * handshake, the JDK `HttpServer` itself — now lives in `dicechess-bot-runtime` (`lv.id.jc:dicechess-bot-runtime`);
+  * handshake, the JDK `HttpServer` itself — lives in `dicechess-bot-runtime` (`com.fortemate:dicechess-bot-runtime`);
   * this object only wires our engine-backed [[Strategy]] into it.
   *
   * Configuration (App Settings on Azure, plain env vars locally):
@@ -33,10 +33,7 @@ object Main:
   def start(port: Int, secret: String, strategy: Strategy): HttpServer =
     CustomHandlerServer.start(port, "/api/webhook", new WebhookHandler(secret, adapt(strategy)))
 
-  /** `dicechess-bot-runtime`'s strategy shape is a plain `java.util.function.Function` — a Scala lambda converts to it
-    * via SAM automatically, so this adapter is the entire cost of reusing the library from a Scala bot.
-    * `AggressiveSearch` needs nothing beyond the position (no time management, no `legalMoves` from the wire), so only
-    * `ctx.dfen` is read here.
+  /** `dicechess-bot-runtime`'s strategy shape is a plain `java.util.function.Function` — a Scala lambda converts to it.
     */
   private def adapt(strategy: Strategy): JFunction[TurnContext, java.util.List[String]] =
     (ctx: TurnContext) =>
