@@ -131,3 +131,25 @@ class StrategySuite extends munit.FunSuite:
     val dState       = TestHelpers.doublingState(mayOfferDouble = false, decision = respDecision)
     val decCtx       = new DoubleDecisionContext("g1", "Black", 1, "bad dfen", clock, dState)
     assert(!strategy.onDoubleDecision(decCtx).acceptDouble())
+
+  test("fromBookFile degrades gracefully on malformed on-disk book file"):
+    val tempFile = java.nio.file.Files.createTempFile("malformed_book", ".tsv")
+    try
+      java.nio.file.Files.writeString(tempFile, "invalid line without tab\n")
+      val strategy = Strategy.fromBookFile(tempFile)
+      val result   = strategy.chooseMoves(initialNbk)
+      assert(result.isRight)
+      assert(result.toOption.get.nonEmpty)
+    finally java.nio.file.Files.deleteIfExists(tempFile)
+
+  test("fromBookFile loads well-formed on-disk book file and returns booked move"):
+    val tempFile = java.nio.file.Files.createTempFile("well_formed_book", ".tsv")
+    try
+      val state  = FenParser.parse(initialNbk).toOption.get
+      val key    = OpeningBook.key(state).getOrElse(fail("a rolled position must have a book key"))
+      val booked = TurnGenerator.generateAllLegalTurnPaths(state).head.map(Strategy.toUci)
+      java.nio.file.Files.writeString(tempFile, s"$key\t${booked.mkString(",")}\n")
+      val strategy = Strategy.fromBookFile(tempFile)
+      val moves    = strategy.chooseMoves(initialNbk).toOption.get
+      assertEquals(moves.sorted, booked.sorted, "the booked turn must win (matched by move multiset)")
+    finally java.nio.file.Files.deleteIfExists(tempFile)
