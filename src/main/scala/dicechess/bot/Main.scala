@@ -1,13 +1,15 @@
 package dicechess.bot
 
 import com.sun.net.httpserver.HttpServer
-import com.fortemate.dicechess.runtime.{CustomHandlerServer, WebhookHandler}
+import com.fortemate.dicechess.runtime.{CustomHandlerServer, TurnContext, WebhookHandler}
 
 import java.nio.file.Path
+import java.util.function.Function as JFunction
+import scala.jdk.CollectionConverters.*
 
 /** The Azure Functions custom-handler process. All webhook/HTTP-server plumbing — HMAC verification, the ownership
   * handshake, the JDK `HttpServer` itself — lives in `dicechess-bot-runtime` (`com.fortemate:dicechess-bot-runtime`);
-  * this object wires our engine-backed [[Strategy]] directly as a `BotStrategy`.
+  * this object only wires our engine-backed [[Strategy]] into it.
   *
   * Configuration (App Settings on Azure, plain env vars locally):
   *   - `DICECHESS_WEBHOOK_SECRET` — the per-bot signing key from webhook registration. Absent, only the registration
@@ -23,10 +25,20 @@ object Main:
       System.err.println("[bot] DICECHESS_WEBHOOK_SECRET is not set — only the verification handshake will succeed")
     val strategy = Strategy.fromBookFile(Path.of(sys.env.getOrElse("DICECHESS_BOOK_PATH", "opening_book.tsv")))
 
-    val server = CustomHandlerServer.startFromEnvironment(new WebhookHandler(secret, strategy))
+    val server = CustomHandlerServer.startFromEnvironment(new WebhookHandler(secret, adapt(strategy)))
     println(s"[bot] aggressive+book custom handler listening on :${server.getAddress.getPort}")
     Thread.currentThread().join() // serve until the host stops the process
 
   /** Start the server (exposed for the end-to-end test; port 0 = ephemeral). */
   def start(port: Int, secret: String, strategy: Strategy): HttpServer =
-    CustomHandlerServer.start(port, "/api/webhook", new WebhookHandler(secret, strategy))
+    CustomHandlerServer.start(port, "/api/webhook", new WebhookHandler(secret, adapt(strategy)))
+
+  /** `dicechess-bot-runtime`'s strategy shape is a plain `java.util.function.Function` — a Scala lambda converts to it.
+    */
+  private def adapt(strategy: Strategy): JFunction[TurnContext, java.util.List[String]] =
+    (ctx: TurnContext) =>
+      strategy.chooseMoves(ctx.dfen()) match
+        case Left(reason) =>
+          System.err.println(s"[bot] unusable dfen: $reason")
+          java.util.List.of()
+        case Right(moves) => moves.asJava
