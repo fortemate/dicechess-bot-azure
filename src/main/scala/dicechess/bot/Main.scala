@@ -7,7 +7,7 @@ import java.nio.file.Path
 
 /** The Azure Functions custom-handler process. All webhook/HTTP-server plumbing — HMAC verification, the ownership
   * handshake, the JDK `HttpServer` itself — lives in `dicechess-bot-runtime` (`com.fortemate:dicechess-bot-runtime`);
-  * this object wires our engine-backed [[Strategy]] directly as a `BotStrategy`.
+  * this object only wires our engine-backed [[Strategy]] into it.
   *
   * Configuration (App Settings on Azure, plain env vars locally):
   *   - `DICECHESS_WEBHOOK_SECRET` — the per-bot signing key from webhook registration. Absent, only the registration
