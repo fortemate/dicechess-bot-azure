@@ -32,16 +32,29 @@ ever required.
 
 | Path | Role |
 | --- | --- |
-| `src/main/scala/dicechess/bot/Strategy.scala` | aggressive + book composition; DFEN in, UCI path out. **Swap the algorithm here.** |
-| `src/main/scala/dicechess/bot/Main.scala` | Wires `Strategy` into [`dicechess-bot-runtime`](https://github.com/fortemate/dicechess-bot-runtime)'s `WebhookHandler`/`CustomHandlerServer` — a Java dependency, not this repo's own code. |
+| `src/main/scala/dicechess/bot/Strategy.scala` | Engine-backed decision brain: implements runtime v2 `BotStrategy` for turns, draw offers/responses, and stake doubling. **Swap the algorithm here.** |
+| `src/main/scala/dicechess/bot/Main.scala` | Wires `Strategy` directly into [`dicechess-bot-runtime`](https://github.com/fortemate/dicechess-bot-runtime)'s `WebhookHandler`/`CustomHandlerServer`. |
 | `opening_book.tsv` | The exported opening book (a file on disk — swap without rebuilding). |
 | `host.json` · `webhook/function.json` | Azure Functions custom-handler wiring (`enableForwardingHttpRequest`). |
 
-HMAC verification, the ownership handshake, and the JDK `HttpServer` itself are no longer this
-repo's code — they're [`dicechess-bot-runtime`](https://github.com/fortemate/dicechess-bot-runtime)
-(`com.fortemate:dicechess-bot-runtime`), the same dependency a Java or Kotlin bot would use. `Main.scala`
-is the entire integration: adapt `Strategy.chooseMoves` to the library's
-`Function<TurnContext, List<String>>` shape and start the server.
+HMAC verification, signature handshakes, decision routing, and the JDK `HttpServer` itself are managed by
+[`dicechess-bot-runtime`](https://github.com/fortemate/dicechess-bot-runtime) v2 (`com.fortemate:dicechess-bot-runtime` 2.0.0). `Main.scala` supplies the typed `BotStrategy` directly to `WebhookHandler`.
+
+## Runtime v2 & Webhook Capabilities
+
+This bot supports runtime v2 decision events by bridging `Strategy` to `AggressiveSearch`'s underlying policy hooks:
+- **Turn Actions (`onTurn`)**: Selects legal turn paths, consulting the opening book and search evaluation. Offers a draw when permitted by server and recommended by engine policy.
+- **Draw Decisions (`onDrawDecision`)**: Evaluates incoming draw offers from the bot's perspective (`shouldAcceptDraw`).
+- **Doubling Opportunities (`onDoubleOpportunity`)**: Evaluates stake-doubling offer opportunities (`shouldOfferDouble`) with active-color perspective and current stake multiplier.
+- **Doubling Decisions (`onDoubleDecision`)**: Evaluates incoming double offers (`shouldAcceptDouble`) with active-color perspective and proposed stake multiplier.
+
+### Required Webhook Capabilities
+When registering or updating this bot on the Dice Chess platform, enable the following webhook capabilities:
+- `turn` — Normal turn move selection and draw offering.
+- `draw` — Dice-free draw decision evaluation.
+- `double` — Stake doubling opportunity and response decision evaluation.
+
+> **Production Deployment Note**: Code readiness for runtime v2 decision handling is independent of production registration and capability enablement. Webhook registration, secret rotation, and capability flags on the live platform are administrative operational tasks managed separately from code changes.
 
 ## Local development
 
