@@ -14,9 +14,8 @@ entry is present. Repository-owner and bot pull requests are exempt.
 ## Prerequisites
 
 - [mise](https://mise.jdx.dev) manages the local toolchain (Java 25, scalafmt, lefthook, …).
-- SBT is the build tool; the dice-chess **engine** is resolved from GitHub Packages, which
-  requires a GitHub token even for public packages. The build reads it from the `gh` CLI
-  automatically (`gh auth login` once), or from `GITHUB_TOKEN` in CI.
+- SBT is the build tool. The dice-chess engine and bot runtime are public Maven Central artifacts,
+  so dependency resolution requires no package-registry credentials.
 
 ## Setup
 

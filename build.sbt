@@ -9,23 +9,6 @@ ThisBuild / scalaVersion         := "3.9.0"
 ThisBuild / description := "Dice Chess webhook bot in Scala: the engine's aggressive search + opening book, compiled to a GraalVM native image for Azure Functions."
 ThisBuild / licenses := List("AGPL-3.0" -> url("https://www.gnu.org/licenses/agpl-3.0.txt"))
 
-ThisBuild / resolvers += "GitHub Packages (dicechess-engine)" at
-  "https://maven.pkg.github.com/fortemate/dicechess-engine"
-ThisBuild / resolvers += "GitHub Packages (dicechess-bot-runtime)" at
-  "https://maven.pkg.github.com/fortemate/dicechess-bot-runtime"
-
-def ghValue(envVar: String, ghArgs: String*): Option[String] =
-  sys.env
-    .get(envVar)
-    .filter(_.nonEmpty)
-    .orElse(scala.util.Try(scala.sys.process.Process("gh" +: ghArgs).!!.trim).toOption)
-    .filter(_.nonEmpty)
-
-ThisBuild / credentials ++= (for {
-  token <- ghValue("GITHUB_TOKEN", "auth", "token")
-  user = sys.env.get("GITHUB_ACTOR").filter(_.nonEmpty).getOrElse("git")
-} yield Credentials("GitHub Package Registry", "maven.pkg.github.com", user, token)).toSeq
-
 val DiceChessEngineVersion     = "0.9.1"
 val DiceChessBotRuntimeVersion = "2.0.0"
 val MunitVersion               = "1.3.6"
