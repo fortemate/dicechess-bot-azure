@@ -48,18 +48,23 @@ This bot supports runtime v2 decision events by bridging `Strategy` to `Aggressi
 - **Doubling Opportunities (`onDoubleOpportunity`)**: Evaluates stake-doubling offer opportunities (`shouldOfferDouble`) with active-color perspective and current stake multiplier.
 - **Doubling Decisions (`onDoubleDecision`)**: Evaluates incoming double offers (`shouldAcceptDouble`) with active-color perspective and proposed stake multiplier.
 
-### Required Webhook Capabilities
-When registering or updating this bot on the Dice Chess platform, enable the following webhook capabilities:
-- `turn` — Normal turn move selection and draw offering.
-- `draw` — Dice-free draw decision evaluation.
-- `double` — Stake doubling opportunity and response decision evaluation.
+### Webhook registration capabilities
+
+Normal `yourTurn` deliveries, including an `offerDraw` turn action when the delivery permits it,
+require no opt-in capability. To receive separate draw-decision deliveries, register the bot with
+the exact `draws` capability.
+
+The exact `doubling` capability name is reserved by the platform and is not selectable yet. The bot
+already implements the typed runtime v2 doubling decisions, but operators must not add `doubling`
+to a registration until the play-api makes it selectable. `turn`, `draw`, and `double` are not valid
+registration capability names.
 
 > **Production Deployment Note**: Code readiness for runtime v2 decision handling is independent of production registration and capability enablement. Webhook registration, secret rotation, and capability flags on the live platform are administrative operational tasks managed separately from code changes.
 
 ## Local development
 
-Requires JDK 25+ and sbt; resolving the engine needs a GitHub token with `read:packages`
-(`gh auth login` is enough — the build reads `gh auth token`).
+Requires JDK 25+ and sbt. The engine and bot runtime are public Maven Central artifacts, so no
+package-registry credentials are required.
 
 ```bash
 mise run check   # Runs scalafmt check and sbt clean test
