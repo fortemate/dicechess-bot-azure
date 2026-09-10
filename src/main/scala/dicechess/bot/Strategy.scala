@@ -32,25 +32,48 @@ final class Strategy(val bot: SearchAlgorithm) extends BotStrategy:
         System.err.println(s"[bot] unusable dfen in onTurn: $reason")
         TurnAction(java.util.List.of(), false)
       case Right(state) =>
-        val moves     = bot.findBestMove(state).map(_.moves.map(Strategy.toUci)).getOrElse(Nil)
-        val offerDraw = ctx.mayOfferDraw() && bot.shouldOfferDraw(state)
-        TurnAction(moves.asJava, offerDraw)
+        val botState = state.withActiveColor(Strategy.seatToColor(ctx.seat()))
+        try
+          val moves     = bot.findBestMove(botState).map(_.moves.map(Strategy.toUci)).getOrElse(Nil)
+          val offerDraw = ctx.mayOfferDraw() && (try bot.shouldOfferDraw(botState)
+          catch
+            case scala.util.control.NonFatal(ex) =>
+              System.err.println(s"[bot] policy evaluation failed in onTurn: ${ex.getMessage}")
+              false)
+          TurnAction(moves.asJava, offerDraw)
+        catch
+          case scala.util.control.NonFatal(ex) =>
+            System.err.println(s"[bot] turn evaluation failed: ${ex.getMessage}")
+            TurnAction(java.util.List.of(), false)
 
   override def onDrawDecision(ctx: DrawDecisionContext): DrawAction =
-    withParsedBotState(ctx.dfen(), ctx.seat(), "onDrawDecision", DrawAction.decline()) { botState =>
-      if bot.shouldAcceptDraw(botState) then DrawAction.accept() else DrawAction.decline()
-    }
+    if shouldAcceptDraw(ctx.dfen(), ctx.seat()) then DrawAction.accept()
+    else DrawAction.decline()
 
   override def onDoubleOpportunity(ctx: DoubleOpportunityContext): DoubleOfferAction =
-    withParsedBotState(ctx.dfen(), ctx.seat(), "onDoubleOpportunity", DoubleOfferAction.roll()) { botState =>
-      if bot.shouldOfferDouble(botState, Strategy.currentMultiplier(ctx)) then DoubleOfferAction.offer()
-      else DoubleOfferAction.roll()
-    }
+    if shouldOfferDouble(ctx.dfen(), ctx.seat(), Strategy.currentMultiplier(ctx)) then DoubleOfferAction.offer()
+    else DoubleOfferAction.roll()
 
   override def onDoubleDecision(ctx: DoubleDecisionContext): DoubleResponseAction =
-    withParsedBotState(ctx.dfen(), ctx.seat(), "onDoubleDecision", DoubleResponseAction.decline()) { botState =>
-      if bot.shouldAcceptDouble(botState, Strategy.proposedMultiplier(ctx)) then DoubleResponseAction.accept()
-      else DoubleResponseAction.decline()
+    if shouldAcceptDouble(ctx.dfen(), ctx.seat(), Strategy.proposedMultiplier(ctx)) then DoubleResponseAction.accept()
+    else DoubleResponseAction.decline()
+
+  /** Evaluates whether to accept an incoming draw offer from the bot's active-color perspective. */
+  def shouldAcceptDraw(dfen: String, seat: String): Boolean =
+    withParsedBotState(dfen, seat, "onDrawDecision", fallback = false) { botState =>
+      bot.shouldAcceptDraw(botState)
+    }
+
+  /** Evaluates whether to offer a double with the current stake multiplier and bot active-color perspective. */
+  def shouldOfferDouble(dfen: String, seat: String, currentMultiplier: Int): Boolean =
+    withParsedBotState(dfen, seat, "onDoubleOpportunity", fallback = false) { botState =>
+      bot.shouldOfferDouble(botState, currentMultiplier)
+    }
+
+  /** Evaluates whether to accept an opponent's double offer with proposed multiplier and bot perspective. */
+  def shouldAcceptDouble(dfen: String, seat: String, proposedMultiplier: Int): Boolean =
+    withParsedBotState(dfen, seat, "onDoubleDecision", fallback = false) { botState =>
+      bot.shouldAcceptDouble(botState, proposedMultiplier)
     }
 
   private def withParsedBotState[A](
@@ -64,7 +87,11 @@ final class Strategy(val bot: SearchAlgorithm) extends BotStrategy:
         System.err.println(s"[bot] unusable dfen in $contextName: $reason")
         fallback
       case Right(state) =>
-        f(state.withActiveColor(Strategy.seatToColor(seat)))
+        try f(state.withActiveColor(Strategy.seatToColor(seat)))
+        catch
+          case scala.util.control.NonFatal(ex) =>
+            System.err.println(s"[bot] policy evaluation failed in $contextName: ${ex.getMessage}")
+            fallback
 
   /** Helper for backwards compatibility / direct move selection tests. */
   def chooseMoves(dfen: String): Either[String, List[String]] =
@@ -78,8 +105,8 @@ final class Strategy(val bot: SearchAlgorithm) extends BotStrategy:
 object Strategy:
 
   /** Map seat name ("White" or "Black") to the engine's internal [[Color]] (`Color.White` / `Color.Black`). */
-  def seatToColor(seat: String): Color =
-    if seat != null && seat.equalsIgnoreCase("Black") then Color.Black else Color.White
+  def seatToColor(seat: String | Null): Color =
+    if Option(seat).exists(_.equalsIgnoreCase("Black")) then Color.Black else Color.White
 
   /** Compute current stake multiplier relative to initial stake (or fallback to cubeValue). */
   def currentMultiplier(ctx: DoubleOpportunityContext): Int =
