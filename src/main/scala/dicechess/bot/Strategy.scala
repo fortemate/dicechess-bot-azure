@@ -27,24 +27,27 @@ import scala.jdk.CollectionConverters.*
 final class Strategy(val bot: SearchAlgorithm) extends BotStrategy:
 
   override def onTurn(ctx: TurnContext): TurnAction =
-    parseState(ctx.dfen()) match
-      case Left(reason) =>
-        System.err.println(s"[bot] unusable dfen in onTurn: $reason")
-        TurnAction(java.util.List.of(), false)
-      case Right(state) =>
-        val botState = state.withActiveColor(Strategy.seatToColor(ctx.seat()))
-        try
-          val moves     = bot.findBestMove(botState).map(_.moves.map(Strategy.toUci)).getOrElse(Nil)
-          val offerDraw = ctx.mayOfferDraw() && (try bot.shouldOfferDraw(botState)
-          catch
-            case scala.util.control.NonFatal(ex) =>
+    evaluateBotState(ctx.dfen(), ctx.seat()) { botState =>
+      val moves     = bot.findBestMove(botState).map(_.moves.map(Strategy.toUci)).getOrElse(Nil)
+      val offerDraw = ctx.mayOfferDraw() && (
+        scala.util
+          .Try(bot.shouldOfferDraw(botState))
+          .fold(
+            ex =>
               System.err.println(s"[bot] policy evaluation failed in onTurn: ${ex.getMessage}")
-              false)
-          TurnAction(moves.asJava, offerDraw)
-        catch
-          case scala.util.control.NonFatal(ex) =>
-            System.err.println(s"[bot] turn evaluation failed: ${ex.getMessage}")
-            TurnAction(java.util.List.of(), false)
+              false
+            ,
+            identity
+          )
+      )
+      TurnAction(moves.asJava, offerDraw)
+    }.fold(
+      err =>
+        System.err.println(s"[bot] ${err.format("onTurn")}")
+        TurnAction(java.util.List.of(), false)
+      ,
+      identity
+    )
 
   override def onDrawDecision(ctx: DrawDecisionContext): DrawAction =
     if shouldAcceptDraw(ctx.dfen(), ctx.seat()) then DrawAction.accept()
@@ -82,16 +85,22 @@ final class Strategy(val bot: SearchAlgorithm) extends BotStrategy:
       contextName: String,
       fallback: A
   )(f: GameState => A): A =
-    parseState(dfen) match
-      case Left(reason) =>
-        System.err.println(s"[bot] unusable dfen in $contextName: $reason")
+    evaluateBotState(dfen, seat)(f).fold(
+      err =>
+        System.err.println(s"[bot] ${err.format(contextName)}")
         fallback
-      case Right(state) =>
-        try f(state.withActiveColor(Strategy.seatToColor(seat)))
-        catch
-          case scala.util.control.NonFatal(ex) =>
-            System.err.println(s"[bot] policy evaluation failed in $contextName: ${ex.getMessage}")
-            fallback
+      ,
+      identity
+    )
+
+  private def evaluateBotState[A](
+      dfen: String,
+      seat: String
+  )(f: GameState => A): Either[PolicyError, A] =
+    parseState(dfen).left.map(PolicyError.ParseFailure.apply).flatMap { state =>
+      val botState = state.withActiveColor(Strategy.seatToColor(seat))
+      scala.util.Try(f(botState)).toEither.left.map(PolicyError.EvaluationFailure.apply)
+    }
 
   /** Helper for backwards compatibility / direct move selection tests. */
   def chooseMoves(dfen: String): Either[String, List[String]] =
@@ -143,3 +152,13 @@ object Strategy:
         System.err.println(s"[bot] no opening book at $path — playing bookless")
         Map.empty[String, String]
     new Strategy(OpeningBookBot.decorate(AggressiveSearch, book))
+
+sealed trait PolicyError:
+  def format(contextName: String): String
+
+object PolicyError:
+  final case class ParseFailure(reason: String) extends PolicyError:
+    def format(contextName: String): String = s"unusable dfen in $contextName: $reason"
+
+  final case class EvaluationFailure(cause: Throwable) extends PolicyError:
+    def format(contextName: String): String = s"policy evaluation failed in $contextName: ${cause.getMessage}"

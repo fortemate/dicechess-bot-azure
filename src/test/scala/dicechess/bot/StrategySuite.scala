@@ -207,18 +207,17 @@ class StrategySuite extends munit.FunSuite:
       java.nio.file.Files.writeString(tempFile, "invalid line without tab\n")
       val strategy = Strategy.fromBookFile(tempFile)
       val result   = strategy.chooseMoves(initialNbk)
-      assert(result.isRight)
-      assert(result.toOption.get.nonEmpty)
+      result.fold(err => fail(err), moves => assert(moves.nonEmpty))
     finally java.nio.file.Files.deleteIfExists(tempFile)
 
   test("fromBookFile loads well-formed on-disk book file and returns booked move"):
     val tempFile = java.nio.file.Files.createTempFile("well_formed_book", ".tsv")
     try
-      val state  = FenParser.parse(initialNbk).toOption.get
+      val state  = FenParser.parse(initialNbk).fold(err => fail(err), identity)
       val key    = OpeningBook.key(state).getOrElse(fail("a rolled position must have a book key"))
       val booked = TurnGenerator.generateAllLegalTurnPaths(state).head.map(Strategy.toUci)
       java.nio.file.Files.writeString(tempFile, s"$key\t${booked.mkString(",")}\n")
       val strategy = Strategy.fromBookFile(tempFile)
-      val moves    = strategy.chooseMoves(initialNbk).toOption.get
+      val moves    = strategy.chooseMoves(initialNbk).fold(err => fail(err), identity)
       assertEquals(moves.sorted, booked.sorted, "the booked turn must win (matched by move multiset)")
     finally java.nio.file.Files.deleteIfExists(tempFile)
