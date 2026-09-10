@@ -64,7 +64,7 @@ class StrategySuite extends munit.FunSuite:
     assertEquals(Strategy.seatToColor("white"), Color.White)
     assertEquals(Strategy.seatToColor("Black"), Color.Black)
     assertEquals(Strategy.seatToColor("black"), Color.Black)
-    assertEquals(Strategy.seatToColor(null), Color.White)
+    assertEquals(Strategy.seatToColor(None), Color.White)
 
   test("onTurn offers a draw only when permitted by server and requested by policy"):
     val strategyDraw   = new Strategy(new TestHelpers.ConfigurableSearch(offerDraw = true))
@@ -79,7 +79,7 @@ class StrategySuite extends munit.FunSuite:
 
   test("onTurn fails closed on malformed DFEN"):
     val strategy    = new Strategy(AggressiveSearch)
-    val turnContext = new TurnContext("g1", "White", 1, "invalid dfen", clock, java.util.List.of(), true)
+    val turnContext = new TurnContext("g1", "White", 1, TestHelpers.InvalidDfen, clock, java.util.List.of(), true)
     val action      = strategy.onTurn(turnContext)
     assertEquals(action.moves(), java.util.List.of[String]())
     assert(!action.offerDraw())
@@ -95,7 +95,7 @@ class StrategySuite extends munit.FunSuite:
 
   test("onDrawDecision fails closed (declines) on malformed DFEN"):
     val strategy = new Strategy(AggressiveSearch)
-    val drawCtx  = new DrawDecisionContext("g1", "White", 1, "invalid dfen", clock)
+    val drawCtx  = new DrawDecisionContext("g1", "White", 1, TestHelpers.InvalidDfen, clock)
     assert(!strategy.onDrawDecision(drawCtx).acceptDraw())
 
   test("onDoubleOpportunity bridges shouldOfferDouble with current stake multiplier and bot perspective"):
@@ -110,7 +110,7 @@ class StrategySuite extends munit.FunSuite:
   test("onDoubleOpportunity fails closed (rolls) on malformed DFEN"):
     val strategy = new Strategy(AggressiveSearch)
     val dState   = TestHelpers.doublingState(currentStake = 100L, cubeValue = 1, cubeOwner = null)
-    val oppCtx   = new DoubleOpportunityContext("g1", "White", 1, "bad dfen", clock, dState)
+    val oppCtx   = new DoubleOpportunityContext("g1", "White", 1, TestHelpers.InvalidDfen, clock, dState)
     assert(!strategy.onDoubleOpportunity(oppCtx).offerDouble())
 
   test("onDoubleDecision bridges shouldAcceptDouble with proposed stake multiplier and bot perspective"):
@@ -129,8 +129,77 @@ class StrategySuite extends munit.FunSuite:
     val strategy     = new Strategy(AggressiveSearch)
     val respDecision = new DoublingDecision.Response("double_1", "Black", "White", 200L)
     val dState       = TestHelpers.doublingState(mayOfferDouble = false, decision = respDecision)
-    val decCtx       = new DoubleDecisionContext("g1", "Black", 1, "bad dfen", clock, dState)
+    val decCtx       = new DoubleDecisionContext("g1", "Black", 1, TestHelpers.InvalidDfen, clock, dState)
     assert(!strategy.onDoubleDecision(decCtx).acceptDouble())
+
+  test("policy exceptions fail closed safely without bubbling"):
+    class CrashingSearch extends SearchAlgorithm:
+      override def findBestMove(state: GameState)                           = sys.error("boom")
+      override def shouldOfferDraw(state: GameState): Boolean               = sys.error("draw boom")
+      override def shouldAcceptDraw(state: GameState): Boolean              = sys.error("accept draw boom")
+      override def shouldOfferDouble(state: GameState, mult: Int): Boolean  = sys.error("double boom")
+      override def shouldAcceptDouble(state: GameState, mult: Int): Boolean = sys.error("accept double boom")
+
+    val strat   = new Strategy(new CrashingSearch)
+    val turnCtx = new TurnContext("g1", "White", 1, initialNbk, clock, java.util.List.of(), true)
+    val turnAct = strat.onTurn(turnCtx)
+    assertEquals(turnAct.moves().size(), 0)
+    assert(!turnAct.offerDraw())
+
+    val drawCtx = new DrawDecisionContext("g1", "White", 1, noDiceFen, clock)
+    assert(!strat.onDrawDecision(drawCtx).acceptDraw())
+
+    val oppCtx = new DoubleOpportunityContext("g1", "White", 1, noDiceFen, clock, TestHelpers.doublingState())
+    assert(!strat.onDoubleOpportunity(oppCtx).offerDouble())
+
+    val respDecision = new DoublingDecision.Response("double_1", "Black", "White", 200L)
+    val dState       = TestHelpers.doublingState(mayOfferDouble = false, decision = respDecision)
+    val decCtx       = new DoubleDecisionContext("g1", "Black", 1, noDiceFen, clock, dState)
+    assert(!strat.onDoubleDecision(decCtx).acceptDouble())
+
+  test("draw offer policy exception in onTurn does not corrupt legal turn moves"):
+    class CrashingDrawSearch extends SearchAlgorithm:
+      override def findBestMove(state: GameState)             = AggressiveSearch.findBestMove(state)
+      override def shouldOfferDraw(state: GameState): Boolean = sys.error("draw policy boom")
+
+    val strat   = new Strategy(new CrashingDrawSearch)
+    val turnCtx = new TurnContext("g1", "White", 1, initialNbk, clock, java.util.List.of(), true)
+    val action  = strat.onTurn(turnCtx)
+    assert(action.moves().size() > 0, "legal moves must still be returned")
+    assert(!action.offerDraw(), "offerDraw must fail closed to false")
+
+  test("policy helpers and direct entry points behave predictably"):
+    assertEquals(Strategy.seatToColor("Black"), Color.Black)
+    assertEquals(Strategy.seatToColor("black"), Color.Black)
+    assertEquals(Strategy.seatToColor("White"), Color.White)
+    assertEquals(Strategy.seatToColor("WHITE"), Color.White)
+    assertEquals(Strategy.seatToColor("other"), Color.White)
+    assertEquals(Strategy.seatToColor(Some("Black")), Color.Black)
+    assertEquals(Strategy.seatToColor(None), Color.White)
+
+    val oppCtx = new DoubleOpportunityContext(
+      "g1",
+      "White",
+      1,
+      noDiceFen,
+      clock,
+      TestHelpers.doublingState(currentStake = 400L, cubeValue = 4)
+    )
+    assertEquals(Strategy.currentMultiplier(oppCtx), 4)
+
+    val respDecision = new DoublingDecision.Response("double_1", "Black", "White", 400L)
+    val dState       = TestHelpers.doublingState(mayOfferDouble = false, decision = respDecision)
+    val decCtx       = new DoubleDecisionContext("g1", "Black", 1, noDiceFen, clock, dState)
+    assertEquals(Strategy.proposedMultiplier(decCtx), 4)
+
+    val strat = new Strategy(AggressiveSearch)
+    assertEquals(strat.shouldAcceptDraw(TestHelpers.InvalidDfen, "White"), false)
+    assertEquals(strat.shouldOfferDouble(TestHelpers.InvalidDfen, "White", 1), false)
+    assertEquals(strat.shouldAcceptDouble(TestHelpers.InvalidDfen, "White", 2), false)
+
+    assertEquals(strat.shouldAcceptDraw(noDiceFen, "White"), false)
+    assertEquals(strat.shouldOfferDouble(noDiceFen, "White", 1), false)
+    assertEquals(strat.shouldAcceptDouble(noDiceFen, "White", 2), true)
 
   test("fromBookFile degrades gracefully on malformed on-disk book file"):
     val tempFile = java.nio.file.Files.createTempFile("malformed_book", ".tsv")
@@ -138,18 +207,17 @@ class StrategySuite extends munit.FunSuite:
       java.nio.file.Files.writeString(tempFile, "invalid line without tab\n")
       val strategy = Strategy.fromBookFile(tempFile)
       val result   = strategy.chooseMoves(initialNbk)
-      assert(result.isRight)
-      assert(result.toOption.get.nonEmpty)
+      result.fold(err => fail(err), moves => assert(moves.nonEmpty))
     finally java.nio.file.Files.deleteIfExists(tempFile)
 
   test("fromBookFile loads well-formed on-disk book file and returns booked move"):
     val tempFile = java.nio.file.Files.createTempFile("well_formed_book", ".tsv")
     try
-      val state  = FenParser.parse(initialNbk).toOption.get
+      val state  = FenParser.parse(initialNbk).fold(err => fail(err), identity)
       val key    = OpeningBook.key(state).getOrElse(fail("a rolled position must have a book key"))
       val booked = TurnGenerator.generateAllLegalTurnPaths(state).head.map(Strategy.toUci)
       java.nio.file.Files.writeString(tempFile, s"$key\t${booked.mkString(",")}\n")
       val strategy = Strategy.fromBookFile(tempFile)
-      val moves    = strategy.chooseMoves(initialNbk).toOption.get
+      val moves    = strategy.chooseMoves(initialNbk).fold(err => fail(err), identity)
       assertEquals(moves.sorted, booked.sorted, "the booked turn must win (matched by move multiset)")
     finally java.nio.file.Files.deleteIfExists(tempFile)

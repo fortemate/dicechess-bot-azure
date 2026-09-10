@@ -6,11 +6,13 @@ import dicechess.engine.search.{AggressiveSearch, ScoredSequence, SearchAlgorith
 
 object TestHelpers:
 
+  val InvalidDfen: String = "invalid-dfen"
+
   final class ConfigurableSearch(
-      offerDraw: Boolean = false,
-      acceptDraw: Boolean = false,
-      offerDouble: Boolean = false,
-      acceptDouble: Boolean = false
+      val offerDraw: Boolean = false,
+      val acceptDraw: Boolean = false,
+      val offerDouble: Boolean = false,
+      val acceptDouble: Boolean = false
   ) extends SearchAlgorithm:
     override def findBestMove(state: GameState): Option[ScoredSequence]   = AggressiveSearch.findBestMove(state)
     override def shouldOfferDraw(state: GameState): Boolean               = offerDraw
@@ -48,20 +50,26 @@ object TestHelpers:
     val co = cubeOwner.map(c => s""""$c"""").getOrElse("null")
     s"""{"currency":"PLAY_CREDIT","initialStake":100,"currentStake":100,"cubeValue":1,"cubeOwner":$co,"maximumMultiplier":64,"mayOfferDouble":$mayOfferDouble,"turnSeat":"White","decision":{"id":"double_1","kind":"$kind","seat":"$seat"$ob,"proposedStake":200}}"""
 
-  def makeEnvelope(
-      eventType: String,
-      seat: String,
-      dfen: String,
+  final case class StateOptions(
       activeSeat: String = "White",
       dicePending: Boolean = false,
       mayOfferDraw: Boolean = false,
       drawOfferPending: Boolean = false,
-      doublingState: String = null
+      doublingState: Option[String] = None,
+      clocks: Option[String] = None
+  )
+
+  def makeEnvelope(
+      eventType: String,
+      seat: String,
+      dfen: String,
+      options: StateOptions = StateOptions()
   ): String =
     val stateProps = new StringBuilder(
-      s""""version":1,"dfen":"$dfen","activeSeat":"$activeSeat","dicePending":$dicePending"""
+      s""""version":1,"dfen":"$dfen","activeSeat":"${options.activeSeat}","dicePending":${options.dicePending}"""
     )
-    if mayOfferDraw then stateProps.append(""","mayOfferDraw":true""")
-    if drawOfferPending then stateProps.append(""","drawOffer":{"pending":true}""")
-    if doublingState != null then stateProps.append(s""","doubling":$doublingState""")
+    if options.mayOfferDraw then stateProps.append(""","mayOfferDraw":true""")
+    if options.drawOfferPending then stateProps.append(""","drawOffer":{"pending":true}""")
+    options.doublingState.foreach(ds => stateProps.append(s""","doubling":$ds"""))
+    options.clocks.foreach(c => stateProps.append(s""","clocks":$c"""))
     s"""{"type":"$eventType","gameId":"g1","seat":"$seat","state":{${stateProps.toString()}}}"""
