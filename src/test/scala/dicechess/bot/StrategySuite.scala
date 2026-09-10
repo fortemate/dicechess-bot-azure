@@ -64,7 +64,7 @@ class StrategySuite extends munit.FunSuite:
     assertEquals(Strategy.seatToColor("white"), Color.White)
     assertEquals(Strategy.seatToColor("Black"), Color.Black)
     assertEquals(Strategy.seatToColor("black"), Color.Black)
-    assertEquals(Strategy.seatToColor(null), Color.White)
+    assertEquals(Strategy.seatToColor(None), Color.White)
 
   test("onTurn offers a draw only when permitted by server and requested by policy"):
     val strategyDraw   = new Strategy(new TestHelpers.ConfigurableSearch(offerDraw = true))
@@ -174,7 +174,8 @@ class StrategySuite extends munit.FunSuite:
     assertEquals(Strategy.seatToColor("White"), Color.White)
     assertEquals(Strategy.seatToColor("WHITE"), Color.White)
     assertEquals(Strategy.seatToColor("other"), Color.White)
-    assertEquals(Strategy.seatToColor(null), Color.White)
+    assertEquals(Strategy.seatToColor(Some("Black")), Color.Black)
+    assertEquals(Strategy.seatToColor(None), Color.White)
 
     val oppCtx = new DoubleOpportunityContext(
       "g1",

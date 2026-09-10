@@ -60,11 +60,12 @@ class MainSuite extends munit.FunSuite:
       val res = postSigned(client, url, body)
       assertEquals(res.statusCode(), 200)
 
-      val json  = parse(res.body()).toOption.get
-      val moves = json.hcursor.get[List[String]]("moves").toOption.get
+      val moves = parse(res.body())
+        .flatMap(_.hcursor.get[List[String]]("moves"))
+        .fold(err => fail(s"moves error: $err"), identity)
       assert(moves.nonEmpty, "the opening roll NBK must have legal moves")
 
-      val state      = FenParser.parse(initialNbk).toOption.get
+      val state      = FenParser.parse(initialNbk).fold(err => fail(s"dfen error: $err"), identity)
       val legalPaths = TurnGenerator.generateAllLegalTurnPaths(state).map(_.map(Strategy.toUci))
       assert(legalPaths.contains(moves), s"$moves must be one of the engine's own legal paths")
     }
@@ -80,10 +81,7 @@ class MainSuite extends munit.FunSuite:
       )
       val res = postSigned(client, url, body)
       assertEquals(res.statusCode(), 200)
-
-      val json      = parse(res.body()).toOption.get
-      val offerDraw = json.hcursor.get[Boolean]("offerDraw").toOption.get
-      assert(offerDraw, "offerDraw should be true when permitted and policy agrees")
+      assertEquals(parse(res.body()).flatMap(_.hcursor.get[Boolean]("offerDraw")), Right(true))
     }
 
   test("end to end over real HTTP: turn does not offer draw when permitted but engine policy returns false"):
@@ -97,9 +95,7 @@ class MainSuite extends munit.FunSuite:
       )
       val res = postSigned(client, url, body)
       assertEquals(res.statusCode(), 200)
-      val json      = parse(res.body()).toOption.get
-      val offerDraw = json.hcursor.get[Boolean]("offerDraw").toOption.get
-      assert(!offerDraw, "turn must not offer draw when engine policy returns false")
+      assertEquals(parse(res.body()).flatMap(_.hcursor.get[Boolean]("offerDraw")), Right(false))
     }
 
   test("end to end over real HTTP: turn does not offer draw when engine policy is true but context does not permit it"):
@@ -113,9 +109,7 @@ class MainSuite extends munit.FunSuite:
       )
       val res = postSigned(client, url, body)
       assertEquals(res.statusCode(), 200)
-      val json      = parse(res.body()).toOption.get
-      val offerDraw = json.hcursor.get[Boolean]("offerDraw").toOption.get
-      assert(!offerDraw, "turn must not offer draw when context does not permit it")
+      assertEquals(parse(res.body()).flatMap(_.hcursor.get[Boolean]("offerDraw")), Right(false))
     }
 
   private def testDecision(
@@ -128,7 +122,7 @@ class MainSuite extends munit.FunSuite:
       withServer(strat) { (client, url) =>
         val res = postSigned(client, url, body)
         assertEquals(res.statusCode(), 200)
-        assertEquals(parse(res.body()).toOption.get.hcursor.get[Boolean](field), Right(expected))
+        assertEquals(parse(res.body()).flatMap(_.hcursor.get[Boolean](field)), Right(expected))
       }
 
   test("end to end over real HTTP: draw decision accept/decline responses"):
@@ -178,7 +172,7 @@ class MainSuite extends munit.FunSuite:
       )
       val drawRes = postSigned(client, url, drawBody)
       assertEquals(drawRes.statusCode(), 200)
-      assertEquals(parse(drawRes.body()).toOption.get.hcursor.get[Boolean]("acceptDraw"), Right(false))
+      assertEquals(parse(drawRes.body()).flatMap(_.hcursor.get[Boolean]("acceptDraw")), Right(false))
 
       val oppBody = TestHelpers.makeEnvelope(
         "doubleOpportunity",
@@ -188,7 +182,7 @@ class MainSuite extends munit.FunSuite:
       )
       val oppRes = postSigned(client, url, oppBody)
       assertEquals(oppRes.statusCode(), 200)
-      assertEquals(parse(oppRes.body()).toOption.get.hcursor.get[Boolean]("offerDouble"), Right(false))
+      assertEquals(parse(oppRes.body()).flatMap(_.hcursor.get[Boolean]("offerDouble")), Right(false))
     }
 
   test("end to end over real HTTP: malformed DFEN in turn and decisions fail closed"):
@@ -201,9 +195,8 @@ class MainSuite extends munit.FunSuite:
       )
       val turnRes = postSigned(client, url, turnBody)
       assertEquals(turnRes.statusCode(), 200)
-      val turnJson = parse(turnRes.body()).toOption.get
-      assertEquals(turnJson.hcursor.get[List[String]]("moves"), Right(Nil))
-      assertEquals(turnJson.hcursor.get[Boolean]("offerDraw"), Right(false))
+      assertEquals(parse(turnRes.body()).flatMap(_.hcursor.get[List[String]]("moves")), Right(Nil))
+      assertEquals(parse(turnRes.body()).flatMap(_.hcursor.get[Boolean]("offerDraw")), Right(false))
 
       val drawBody = TestHelpers.makeEnvelope(
         "drawDecision",
@@ -213,7 +206,7 @@ class MainSuite extends munit.FunSuite:
       )
       val drawRes = postSigned(client, url, drawBody)
       assertEquals(drawRes.statusCode(), 200)
-      assertEquals(parse(drawRes.body()).toOption.get.hcursor.get[Boolean]("acceptDraw"), Right(false))
+      assertEquals(parse(drawRes.body()).flatMap(_.hcursor.get[Boolean]("acceptDraw")), Right(false))
 
       val oppBody = TestHelpers.makeEnvelope(
         "doubleOpportunity",
@@ -223,7 +216,7 @@ class MainSuite extends munit.FunSuite:
       )
       val oppRes = postSigned(client, url, oppBody)
       assertEquals(oppRes.statusCode(), 200)
-      assertEquals(parse(oppRes.body()).toOption.get.hcursor.get[Boolean]("offerDouble"), Right(false))
+      assertEquals(parse(oppRes.body()).flatMap(_.hcursor.get[Boolean]("offerDouble")), Right(false))
 
       val decBody = TestHelpers.makeEnvelope(
         "doubleDecision",
@@ -237,7 +230,7 @@ class MainSuite extends munit.FunSuite:
       )
       val decRes = postSigned(client, url, decBody)
       assertEquals(decRes.statusCode(), 200)
-      assertEquals(parse(decRes.body()).toOption.get.hcursor.get[Boolean]("acceptDouble"), Right(false))
+      assertEquals(parse(decRes.body()).flatMap(_.hcursor.get[Boolean]("acceptDouble")), Right(false))
     }
 
   test("end to end over real HTTP: rejects missing or invalid signatures"):

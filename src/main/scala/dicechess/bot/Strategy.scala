@@ -105,8 +105,11 @@ final class Strategy(val bot: SearchAlgorithm) extends BotStrategy:
 object Strategy:
 
   /** Map seat name ("White" or "Black") to the engine's internal [[Color]] (`Color.White` / `Color.Black`). */
-  def seatToColor(seat: String | Null): Color =
-    if Option(seat).exists(_.equalsIgnoreCase("Black")) then Color.Black else Color.White
+  def seatToColor(seat: Option[String]): Color =
+    if seat.exists(_.equalsIgnoreCase("Black")) then Color.Black else Color.White
+
+  def seatToColor(seat: String): Color =
+    seatToColor(Option(seat))
 
   /** Compute current stake multiplier relative to initial stake (or fallback to cubeValue). */
   def currentMultiplier(ctx: DoubleOpportunityContext): Int =
