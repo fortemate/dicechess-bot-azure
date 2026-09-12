@@ -22,7 +22,7 @@ directly if you specifically want the engine already wired in.
 
 ## Licensing
 
-**AGPL-3.0**, because it links the AGPL engine — this is the trade-off that
+**AGPL-3.0-only**, because it links the AGPL-3.0-only engine — this is the trade-off that
 [`dicechess-bot-scala`](https://github.com/fortemate/dicechess-bot-scala) deliberately avoids.
 Forks and experiments are welcome — derived bots stay AGPL. If you want a **closed-source** bot,
 fork the MIT template instead: the legal moves are already on the wire, so no engine linkage is
