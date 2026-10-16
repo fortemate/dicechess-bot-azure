@@ -21,7 +21,7 @@ lazy val root = (project in file("."))
     libraryDependencies ++= Seq(
       "com.fortemate" %% "dicechess-engine"      % DiceChessEngineVersion,
       "com.fortemate"  % "dicechess-bot-runtime" % DiceChessBotRuntimeVersion,
-      "io.circe"      %% "circe-parser"          % "0.14.16"    % Test,
+      "io.circe"      %% "circe-parser"          % "0.14.17"    % Test,
       "org.scalameta" %% "munit"                 % MunitVersion % Test
     ),
     nativeImageInstalled := true,
