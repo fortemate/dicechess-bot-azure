@@ -32,7 +32,7 @@ jobs:
           cache: sbt
 
       - name: Setup sbt
-        uses: sbt/setup-sbt@v1
+        uses: sbt/setup-sbt@7e114eae4f32ec3f93c851c2793376a77f384409 # v1
 
       - name: Check Formatting (scalafmt)
         run: sbt scalafmtCheckAll scalafmtSbtCheck
@@ -56,14 +56,14 @@ jobs:
           persist-credentials: false
 
       - name: Setup GraalVM
-        uses: graalvm/setup-graalvm@v1
+        uses: graalvm/setup-graalvm@60e76998d25690099182b796e99b8804da582d90 # v1
         with:
           java-version: "25"
           distribution: graalvm-community
           cache: sbt
 
       - name: Setup sbt
-        uses: sbt/setup-sbt@v1
+        uses: sbt/setup-sbt@7e114eae4f32ec3f93c851c2793376a77f384409 # v1
 
       - name: Build native image
         run: sbt nativeImage
